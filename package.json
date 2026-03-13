@@ -1,0 +1,21 @@
+{
+  "name": "stock-monitor-skill",
+  "version": "1.0.0",
+  "description": "通用股票监控技能，支持自定义股票名称或代码查询",
+  "main": "scripts/setup-cron.js",
+  "scripts": {
+    "setup": "node scripts/setup-cron.js",
+    "remove": "node scripts/remove-cron.js",
+    "query": "node scripts/query-price.js"
+  },
+  "keywords": [
+    "openclaw",
+    "skill",
+    "stock",
+    "monitor",
+    "cron",
+    "feishu"
+  ],
+  "author": "",
+  "license": "MIT"
+}
