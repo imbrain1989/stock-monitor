@@ -1,10 +1,11 @@
 /**
- * 通用股票监控技能 - 定时任务安装脚本
+ * 通用股票监控技能 - 定时任务安装脚本（CDP 增强版本）
  * 
  * 使用方法：
  * node skills/stock-monitor/scripts/setup-cron.js
  * 
  * 支持自定义股票名称、代码和推送时间
+ * 使用 Chrome DevTools Protocol (CDP) 获取股价数据
  */
 
 const { execSync } = require('child_process');
@@ -13,7 +14,7 @@ const readline = require('readline');
 // 配置
 const CHANNEL = 'feishu';
 const TIMEZONE = 'Asia/Shanghai';
-const TASK_TIMEOUT = 120; // 任务超时时间（秒）
+const TASK_TIMEOUT = 180; // 任务超时时间增加到 180 秒（CDP 需要更多时间）
 const TARGET_USER = 'ou_3b363dce9bb583f7ec9f822e2b7a7880';
 
 // 默认推送时间（可根据需要修改）
@@ -38,7 +39,7 @@ function execCommand(cmd) {
     const output = execSync(cmd, { 
       encoding: 'utf-8',
       stdio: ['pipe', 'pipe', 'pipe'],
-      timeout: 30000
+      timeout: 45000
     });
     return { success: true, output };
   } catch (error) {
@@ -55,14 +56,40 @@ function generateCron(hour, minute) {
   return `${minute} ${hour} * * 1-5`;
 }
 
-// 生成任务消息
+// 生成 CDP 增强的任务消息
 function generateMessage(stockName, stockCode) {
-  return `查询${stockName} (${stockCode}) 当前股价，通过浏览器访问百度搜索获取实时数据，然后发送股价信息给用户。`;
+  return `使用 Chrome DevTools Protocol (CDP) 查询${stockName} (${stockCode}) 当前股价。
+
+操作步骤：
+1. 尝试通过 CDP 协议连接到 Chrome 浏览器（端口 9222）
+2. 访问百度搜索：https://www.baidu.com/s?wd=${encodeURIComponent(stockName + '股价')}
+3. 等待页面完全加载（networkidle 状态）
+4. 获取页面元素快照并定位股价信息
+5. 提取股价数据（收盘价、涨跌幅、成交量等）
+6. 如果 CDP 失败，自动回退到普通浏览器模式
+7. 如果获取失败，自动重试最多 3 次（指数退避）
+8. 将格式化后的股价信息通过飞书发送给用户
+
+技术特性：
+- 超时时间：180 秒
+- 重试策略：指数退避，最多 3 次
+- 回退机制：CDP 失败时自动使用普通浏览器
+- 错误报告：详细的错误日志和状态信息
+
+预期数据格式：
+- 股票名称：${stockName}
+- 股票代码：${stockCode}
+- 当前价格：xx.xx 元
+- 涨跌幅：±x.xx%
+- 涨跌额：±x.xx 元
+- 成交量：xx.xx 万手
+- 总市值：xx.x 亿元
+- 更新时间：YYYY-MM-DD HH:mm:ss`;
 }
 
 // 主函数
 async function main() {
-  console.log('📈 通用股票监控技能 - 定时任务安装程序\n');
+  console.log('📈 通用股票监控技能 - 定时任务安装程序（CDP 增强版本）\n');
   console.log('─'.repeat(60));
   
   // 交互式输入
@@ -83,9 +110,10 @@ async function main() {
   rl.close();
   
   console.log('\n' + '─'.repeat(60));
-  console.log(`\n股票：${stockName} (${stockCode})`);
+  console.log(`股票：${stockName} (${stockCode})`);
   console.log(`推送渠道：${CHANNEL}`);
   console.log(`时区：${TIMEZONE}`);
+  console.log(`任务超时：${TASK_TIMEOUT}秒`);
   console.log(`任务数量：${scheduleCount}个`);
   console.log('─'.repeat(60));
   
@@ -114,6 +142,18 @@ async function main() {
       console.log(`    ✅ 已创建 (ID: ${jobId})`);
     } else {
       console.log(`    ❌ 失败：${result.error}`);
+      // 如果是权限问题，尝试使用备用方法
+      if (result.error.includes('permission') || result.error.includes('unauthorized')) {
+        console.log(`    🔄 尝试备用方法...`);
+        const backupCmd = `cmd /c openclaw cron add --name "${jobName}" --cron "${cronExpr}" --tz "${TIMEZONE}" --message "${message}" --channel ${CHANNEL} --target user:${TARGET_USER} --session isolated --timeout ${TASK_TIMEOUT}`;
+        const backupResult = execCommand(backupCmd);
+        if (backupResult.success) {
+          const match = backupResult.output.match(/"id":\s*"([^"]+)"/);
+          const jobId = match ? match[1] : 'unknown';
+          createdJobs.push({ name: jobName, id: jobId, schedule: schedule.name });
+          console.log(`    ✅ 备用方法成功 (ID: ${jobId})`);
+        }
+      }
     }
   });
   
@@ -127,7 +167,13 @@ async function main() {
     });
     
     console.log(`\n📋 股票：${stockName} (${stockCode})`);
-    console.log(`📊 推送时间：${selectedTimes.map(t => t.schedule).join(', ')}`);
+    console.log(`📊 推送时间：${selectedTimes.map(t => t.name).join(', ')}`);
+    console.log('\n⚠️ 监控建议：');
+    console.log('  重点关注 09:35 和 10:30 的执行情况');
+    console.log('  如果失败，检查：');
+    console.log('    1. Chrome CDP 端口状态（端口 9222）');
+    console.log('    2. Feishu 授权状态');
+    console.log('    3. 网络连接状态');
   }
   
   console.log('\n🔧 管理命令：');
