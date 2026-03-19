@@ -1,6 +1,6 @@
 {
   "name": "stock-monitor-skill",
-  "version": "1.0.0",
+  "version": "1.1.1",
   "description": "通用股票监控技能，支持自定义股票名称或代码查询",
   "main": "scripts/setup-cron.js",
   "scripts": {
