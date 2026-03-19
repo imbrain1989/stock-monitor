@@ -15,7 +15,7 @@ const readline = require('readline');
 const CHANNEL = 'feishu';
 const TIMEZONE = 'Asia/Shanghai';
 const TASK_TIMEOUT = 180; // 任务超时时间增加到 180 秒（CDP 需要更多时间）
-const TARGET_USER = 'ou_3b363dce9bb583f7ec9f822e2b7a7880';
+const TARGET_USER = 'xxx'; //feishu地址
 
 // 默认推送时间（可根据需要修改）
 const DEFAULT_SCHEDULE_TIMES = [
